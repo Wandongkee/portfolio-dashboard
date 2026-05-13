@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-14T08:21:02+09:00",
+  "generated_at": "2026-05-14T08:53:33+09:00",
   "source_file": "포트폴리오.xlsx",
   "method_note": "자산총계 시트 8행 이후 데이터를 기준으로 Python에서 평가금액과 비중을 직접 재계산했습니다. openpyxl 저장 후 수식 캐시가 사라지는 문제를 보완하기 위해 현금·예금의 단순 수식은 Python에서 보조 계산합니다. 장기예금은 투자기준 금액에서 제외했습니다.",
   "fx": {
@@ -38,11 +38,11 @@
         "pct_investment_base": 0.20155149
       },
       {
-        "asset_class1": "채권",
-        "amount_krw_total": 35169501.0,
-        "amount_krw_investment_base": 35169501.0,
-        "pct_total_assets": 0.17469067,
-        "pct_investment_base": 0.20128553
+        "asset_class1": "단기채권",
+        "amount_krw_total": 27531410.0,
+        "amount_krw_investment_base": 27531410.0,
+        "pct_total_assets": 0.13675146,
+        "pct_investment_base": 0.15757046
       },
       {
         "asset_class1": "예금",
@@ -57,6 +57,13 @@
         "amount_krw_investment_base": 15388671.0,
         "pct_total_assets": 0.07643717,
         "pct_investment_base": 0.08807395
+      },
+      {
+        "asset_class1": "장기채권",
+        "amount_krw_total": 7638091.0,
+        "amount_krw_investment_base": 7638091.0,
+        "pct_total_assets": 0.03793921,
+        "pct_investment_base": 0.04371507
       }
     ],
     "by_asset_class1_2": [
@@ -77,7 +84,7 @@
         "pct_investment_base": 0.160146
       },
       {
-        "asset_class1": "채권",
+        "asset_class1": "단기채권",
         "asset_class2": "초단기",
         "amount_krw_total": 27531410.0,
         "amount_krw_investment_base": 27531410.0,
@@ -125,7 +132,7 @@
         "pct_investment_base": 0.06494159
       },
       {
-        "asset_class1": "채권",
+        "asset_class1": "장기채권",
         "asset_class2": "장기채",
         "amount_krw_total": 7638091.0,
         "amount_krw_investment_base": 7638091.0,
@@ -466,7 +473,7 @@
       "account": "ISA",
       "country": "",
       "investment_currency": "달러",
-      "asset_class1": "채권",
+      "asset_class1": "장기채권",
       "asset_class2": "장기채",
       "listing_currency": "KRW",
       "hedge_flag": "",
@@ -532,7 +539,7 @@
       "account": "ISA",
       "country": "",
       "investment_currency": "원화",
-      "asset_class1": "채권",
+      "asset_class1": "장기채권",
       "asset_class2": "장기채",
       "listing_currency": "KRW",
       "hedge_flag": "",
@@ -664,7 +671,7 @@
       "account": "위탁종합",
       "country": "",
       "investment_currency": "달러",
-      "asset_class1": "채권",
+      "asset_class1": "단기채권",
       "asset_class2": "초단기",
       "listing_currency": "USD",
       "hedge_flag": "",
@@ -846,7 +853,7 @@
       "market_value_krw": 5951742.0,
       "pnl_rate": 0.10185303,
       "pnl_amount_krw": 550167.0,
-      "pe": 33.996597,
+      "pe": 33.795433,
       "forward_pe": 20.723423,
       "pb": 61.156242,
       "roe": 0.3621,
@@ -945,7 +952,7 @@
       "market_value_krw": 3024253.0,
       "pnl_rate": 0.11376096,
       "pnl_amount_krw": 308901.0,
-      "pe": 36.134827,
+      "pe": 35.207973,
       "forward_pe": 22.93792,
       "pb": 29.090414,
       "roe": 1.07459,
@@ -1093,7 +1100,7 @@
       "account": "위탁종합",
       "country": "",
       "investment_currency": "달러",
-      "asset_class1": "채권",
+      "asset_class1": "장기채권",
       "asset_class2": "장기채",
       "listing_currency": "USD",
       "hedge_flag": "",
@@ -1291,7 +1298,7 @@
       "account": "ISA",
       "country": "",
       "investment_currency": "달러",
-      "asset_class1": "채권",
+      "asset_class1": "장기채권",
       "asset_class2": "장기채",
       "listing_currency": "KRW",
       "hedge_flag": "",
@@ -1324,7 +1331,7 @@
       "account": "ISA",
       "country": "",
       "investment_currency": "원화",
-      "asset_class1": "채권",
+      "asset_class1": "장기채권",
       "asset_class2": "장기채",
       "listing_currency": "KRW",
       "hedge_flag": "",
