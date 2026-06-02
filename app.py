@@ -199,15 +199,82 @@ def show_percent_table(df: pd.DataFrame) -> None:
     if df.empty:
         st.info("표시할 데이터가 없습니다.")
         return
-    rename = {"asset_class1": "자산구분1", "asset_class2": "자산구분2", "investment_currency": "투자환종", "listing_currency": "상장통화", "hedge_flag": "환헤지", "owner": "소유자", "amount_krw_total": "총자산 기준 금액", "amount_krw_investment_base": "투자기준 금액", "pct_total_assets": "총자산 비중", "pct_investment_base": "투자기준 비중"}
-    display = df.rename(columns=rename)
+
+    rename = {
+        "asset_class1": "자산구분1",
+        "asset_class2": "자산구분2",
+        "investment_currency": "투자환종",
+        "listing_currency": "상장통화",
+        "hedge_flag": "환헤지",
+        "owner": "소유자",
+        "amount_krw_total": "총자산 기준 금액",
+        "amount_krw_investment_base": "투자기준 금액",
+        "pct_total_assets": "총자산 비중",
+        "pct_investment_base": "투자기준 비중",
+    }
+    display = df.rename(columns=rename).copy()
+    column_config = {}
+
     for col in ["총자산 기준 금액", "투자기준 금액"]:
         if col in display.columns:
-            display[col] = display[col].map(fmt_krw)
+            display[col] = pd.to_numeric(display[col], errors="coerce").fillna(0)
+            column_config[col] = st.column_config.NumberColumn(col, format="%.0f원")
+
     for col in ["총자산 비중", "투자기준 비중"]:
         if col in display.columns:
-            display[col] = display[col].map(fmt_pct)
-    st.dataframe(display, use_container_width=True, hide_index=True)
+            display[col] = pd.to_numeric(display[col], errors="coerce").fillna(0) * 100
+            column_config[col] = st.column_config.NumberColumn(col, format="%.2f%%")
+
+    st.dataframe(display, use_container_width=True, hide_index=True, column_config=column_config)
+
+
+def show_asset_class1_pie(summary: dict[str, Any]) -> None:
+    asset1_df = table(summary, "by_asset_class1")
+    if asset1_df.empty or "asset_class1" not in asset1_df.columns or "pct_investment_base" not in asset1_df.columns:
+        st.info("원형그래프를 표시할 데이터가 없습니다.")
+        return
+
+    chart_df = asset1_df[["asset_class1", "pct_investment_base"]].copy()
+    chart_df["pct_investment_base"] = pd.to_numeric(chart_df["pct_investment_base"], errors="coerce").fillna(0)
+    chart_df = chart_df[chart_df["pct_investment_base"] > 0]
+    if chart_df.empty:
+        st.info("원형그래프를 표시할 데이터가 없습니다.")
+        return
+
+    chart_df = chart_df.rename(columns={"asset_class1": "자산구분1", "pct_investment_base": "비중"})
+    chart_df["비중"] = chart_df["비중"] * 100
+
+    st.vega_lite_chart(
+        chart_df,
+        {
+            "mark": {"type": "arc", "innerRadius": 35},
+            "encoding": {
+                "theta": {"field": "비중", "type": "quantitative"},
+                "color": {"field": "자산구분1", "type": "nominal", "legend": {"orient": "bottom"}},
+                "tooltip": [
+                    {"field": "자산구분1", "type": "nominal"},
+                    {"field": "비중", "type": "quantitative", "format": ".2f", "title": "비중(%)"},
+                ],
+            },
+        },
+        use_container_width=True,
+    )
+
+
+def show_checkpoint_metrics(summary: dict[str, Any]) -> None:
+    asset_pct = {}
+    asset1_df = table(summary, "by_asset_class1")
+    if not asset1_df.empty:
+        for _, row in asset1_df.iterrows():
+            asset_pct[text(row.get("asset_class1"))] = num(row.get("pct_investment_base"))
+
+    st.subheader("핵심 비중 체크포인트")
+    r1, r2, r3, r4, r5 = st.columns(5)
+    r1.metric("주식+지수", fmt_pct(asset_pct.get("개별주식", 0) + asset_pct.get("지수", 0)))
+    r2.metric("장기채권", fmt_pct(long_bond_pct(summary)))
+    r3.metric("단기채권", fmt_pct(short_bond_pct(summary)))
+    r4.metric("현금", fmt_pct(asset_pct.get("현금", 0)))
+    r5.metric("금/헷지", fmt_pct(asset_pct.get("헷지", 0)))
 
 
 def show_rules(summary: dict[str, Any]) -> None:
@@ -364,27 +431,30 @@ f3.metric("JPY 1엔/KRW", fmt_num(fx.get("jpy_1_krw_sell_rate"), 4))
 
 st.divider()
 
-tab_summary, tab_holdings, tab_risk, tab_rules = st.tabs(["요약", "보유내역", "분석용 체크포인트", "운용 룰"])
+tab_summary, tab_holdings, tab_rules = st.tabs(["요약", "보유내역", "운용 룰"])
 
 with tab_summary:
+    show_checkpoint_metrics(summary_json)
+    st.divider()
+
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("자산구분1 비중")
-        show_percent_table(table(summary_json, "by_asset_class1"))
+        st.subheader("자산구분1 비중 원형그래프")
+        show_asset_class1_pie(summary_json)
     with c2:
-        st.subheader("투자환종 비중")
-        show_percent_table(table(summary_json, "by_investment_currency"))
+        st.subheader("자산구분1 비중표")
+        show_percent_table(table(summary_json, "by_asset_class1"))
+
     c3, c4 = st.columns(2)
     with c3:
+        st.subheader("투자환종 비중")
+        show_percent_table(table(summary_json, "by_investment_currency"))
+    with c4:
         st.subheader("상장통화 비중")
         show_percent_table(table(summary_json, "by_listing_currency"))
-    with c4:
-        st.subheader("환헤지 구분")
-        show_percent_table(table(summary_json, "by_hedge_flag"))
+
     st.subheader("자산구분1·2 상세")
     show_percent_table(table(summary_json, "by_asset_class1_2"))
-    st.subheader("소유자별")
-    show_percent_table(table(summary_json, "by_owner"))
 
 with tab_holdings:
     st.subheader("보유내역")
@@ -398,27 +468,6 @@ with tab_holdings:
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     st.download_button("보유내역 CSV 다운로드", filtered_df.to_csv(index=False).encode("utf-8-sig"), "portfolio_holdings.csv", "text/csv")
     st.download_button("요약 JSON 다운로드", json.dumps(summary_json, ensure_ascii=False, indent=2).encode("utf-8"), "portfolio_summary.json", "application/json")
-
-with tab_risk:
-    st.subheader("분석용 체크포인트")
-    asset_pct = {}
-    asset1_df = table(summary_json, "by_asset_class1")
-    if not asset1_df.empty:
-        for _, row in asset1_df.iterrows():
-            asset_pct[text(row.get("asset_class1"))] = num(row.get("pct_investment_base"))
-    r1, r2, r3, r4, r5 = st.columns(5)
-    r1.metric("주식+지수", fmt_pct(asset_pct.get("개별주식", 0) + asset_pct.get("지수", 0)))
-    r2.metric("장기채권", fmt_pct(long_bond_pct(summary_json)))
-    r3.metric("단기채권", fmt_pct(short_bond_pct(summary_json)))
-    r4.metric("현금", fmt_pct(asset_pct.get("현금", 0)))
-    r5.metric("금/헷지", fmt_pct(asset_pct.get("헷지", 0)))
-    st.write("아래 표는 투자 판단용 원자료 확인을 위한 보조 지표입니다. 매수·매도 신호로 자동 해석하지 않습니다.")
-    if "market_value_krw" in filtered_df.columns:
-        top_df = filtered_df[filtered_df["market_value_krw"].fillna(0) > 0].sort_values("market_value_krw", ascending=False).head(15).copy()
-        if "pnl_rate" in top_df.columns:
-            top_df["pnl_rate_display"] = top_df["pnl_rate"] * 100
-        st.subheader("상위 보유종목")
-        st.dataframe(top_df[[c for c in ["asset_class1", "asset_class2", "ticker", "name", "market_value_krw", "pnl_rate_display"] if c in top_df.columns]], use_container_width=True, hide_index=True)
 
 with tab_rules:
     show_rules(summary_json)
