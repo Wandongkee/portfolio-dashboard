@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-06-10T16:47:14+09:00",
+  "generated_at": "2026-06-10T16:49:18+09:00",
   "source_file": "포트폴리오.xlsx",
   "method_note": "자산총계 시트 8행 이후 데이터를 기준으로 Python에서 평가금액과 비중을 직접 재계산했습니다. openpyxl 저장 후 수식 캐시가 사라지는 문제를 보완하기 위해 현금·예금의 단순 수식은 Python에서 보조 계산합니다. 장기예금은 투자기준 금액에서 제외했습니다.",
   "fx": {
-    "usd_krw_sell_rate": 1527.06,
+    "usd_krw_sell_rate": 1526.48,
     "jpy_100_krw_sell_rate": 949.94,
     "jpy_1_krw_sell_rate": 9.4994
   },
   "totals": {
-    "total_asset_krw": 147563302.0,
+    "total_asset_krw": 147559427.0,
     "excluded_from_investment_base_krw": 27200000.0,
-    "investment_base_krw": 120363302.0,
+    "investment_base_krw": 120359427.0,
     "holding_count": 33,
     "nonzero_holding_count": 24
   },
@@ -20,43 +20,43 @@
         "asset_class1": "지수",
         "amount_krw_total": 48171845.0,
         "amount_krw_investment_base": 48171845.0,
-        "pct_total_assets": 0.32644868,
-        "pct_investment_base": 0.40022037
+        "pct_total_assets": 0.32645725,
+        "pct_investment_base": 0.40023325
       },
       {
         "asset_class1": "예금",
         "amount_krw_total": 27200000.0,
         "amount_krw_investment_base": 0.0,
-        "pct_total_assets": 0.18432767,
+        "pct_total_assets": 0.18433251,
         "pct_investment_base": 0.0
       },
       {
         "asset_class1": "장기채권",
         "amount_krw_total": 20667150.0,
         "amount_krw_investment_base": 20667150.0,
-        "pct_total_assets": 0.14005616,
-        "pct_investment_base": 0.17170641
+        "pct_total_assets": 0.14005984,
+        "pct_investment_base": 0.17171193
       },
       {
         "asset_class1": "헷지",
         "amount_krw_total": 19731259.0,
         "amount_krw_investment_base": 19731259.0,
-        "pct_total_assets": 0.13371386,
-        "pct_investment_base": 0.16393085
+        "pct_total_assets": 0.13371737,
+        "pct_investment_base": 0.16393613
       },
       {
         "asset_class1": "단기채권",
         "amount_krw_total": 17190560.0,
         "amount_krw_investment_base": 17190560.0,
-        "pct_total_assets": 0.11649617,
-        "pct_investment_base": 0.14282227
+        "pct_total_assets": 0.11649923,
+        "pct_investment_base": 0.14282687
       },
       {
         "asset_class1": "현금",
-        "amount_krw_total": 14602488.0,
-        "amount_krw_investment_base": 14602488.0,
-        "pct_total_assets": 0.09895745,
-        "pct_investment_base": 0.1213201
+        "amount_krw_total": 14598613.0,
+        "amount_krw_investment_base": 14598613.0,
+        "pct_total_assets": 0.09893379,
+        "pct_investment_base": 0.12129181
       }
     ],
     "by_asset_class1_2": [
@@ -65,15 +65,15 @@
         "asset_class2": "S&P500",
         "amount_krw_total": 36566685.0,
         "amount_krw_investment_base": 36566685.0,
-        "pct_total_assets": 0.24780338,
-        "pct_investment_base": 0.30380261
+        "pct_total_assets": 0.24780989,
+        "pct_investment_base": 0.30381239
       },
       {
         "asset_class1": "예금",
         "asset_class2": "장기예금",
         "amount_krw_total": 27200000.0,
         "amount_krw_investment_base": 0.0,
-        "pct_total_assets": 0.18432767,
+        "pct_total_assets": 0.18433251,
         "pct_investment_base": 0.0
       },
       {
@@ -81,56 +81,56 @@
         "asset_class2": "장기채",
         "amount_krw_total": 20667150.0,
         "amount_krw_investment_base": 20667150.0,
-        "pct_total_assets": 0.14005616,
-        "pct_investment_base": 0.17170641
+        "pct_total_assets": 0.14005984,
+        "pct_investment_base": 0.17171193
       },
       {
         "asset_class1": "헷지",
         "asset_class2": "금",
         "amount_krw_total": 19731259.0,
         "amount_krw_investment_base": 19731259.0,
-        "pct_total_assets": 0.13371386,
-        "pct_investment_base": 0.16393085
+        "pct_total_assets": 0.13371737,
+        "pct_investment_base": 0.16393613
       },
       {
         "asset_class1": "단기채권",
         "asset_class2": "초단기",
         "amount_krw_total": 17190560.0,
         "amount_krw_investment_base": 17190560.0,
-        "pct_total_assets": 0.11649617,
-        "pct_investment_base": 0.14282227
+        "pct_total_assets": 0.11649923,
+        "pct_investment_base": 0.14282687
       },
       {
         "asset_class1": "지수",
         "asset_class2": "S&P500동일가중",
         "amount_krw_total": 11605160.0,
         "amount_krw_investment_base": 11605160.0,
-        "pct_total_assets": 0.0786453,
-        "pct_investment_base": 0.09641776
+        "pct_total_assets": 0.07864736,
+        "pct_investment_base": 0.09642086
       },
       {
         "asset_class1": "현금",
         "asset_class2": "달러",
-        "amount_krw_total": 10203326.0,
-        "amount_krw_investment_base": 10203326.0,
-        "pct_total_assets": 0.06914542,
-        "pct_investment_base": 0.08477107
+        "amount_krw_total": 10199451.0,
+        "amount_krw_investment_base": 10199451.0,
+        "pct_total_assets": 0.06912097,
+        "pct_investment_base": 0.0847416
       },
       {
         "asset_class1": "현금",
         "asset_class2": "원화",
         "amount_krw_total": 4248635.0,
         "amount_krw_investment_base": 4248635.0,
-        "pct_total_assets": 0.02879195,
-        "pct_investment_base": 0.03529843
+        "pct_total_assets": 0.0287927,
+        "pct_investment_base": 0.03529956
       },
       {
         "asset_class1": "현금",
         "asset_class2": "엔화",
         "amount_krw_total": 150527.0,
         "amount_krw_investment_base": 150527.0,
-        "pct_total_assets": 0.00102008,
-        "pct_investment_base": 0.00125061
+        "pct_total_assets": 0.00102011,
+        "pct_investment_base": 0.00125065
       }
     ],
     "by_investment_currency": [
@@ -138,22 +138,22 @@
         "investment_currency": "원화",
         "amount_krw_total": 112720030.0,
         "amount_krw_investment_base": 85520030.0,
-        "pct_total_assets": 0.76387576,
-        "pct_investment_base": 0.71051582
+        "pct_total_assets": 0.76389582,
+        "pct_investment_base": 0.71053869
       },
       {
         "investment_currency": "달러",
-        "amount_krw_total": 27223937.0,
-        "amount_krw_investment_base": 27223937.0,
-        "pct_total_assets": 0.18448989,
-        "pct_investment_base": 0.22618137
+        "amount_krw_total": 27220062.0,
+        "amount_krw_investment_base": 27220062.0,
+        "pct_total_assets": 0.18446847,
+        "pct_investment_base": 0.22615646
       },
       {
         "investment_currency": "엔화",
         "amount_krw_total": 7619335.0,
         "amount_krw_investment_base": 7619335.0,
-        "pct_total_assets": 0.05163435,
-        "pct_investment_base": 0.06330281
+        "pct_total_assets": 0.0516357,
+        "pct_investment_base": 0.06330485
       }
     ],
     "by_listing_currency": [
@@ -161,54 +161,54 @@
         "listing_currency": "KRW",
         "amount_krw_total": 127386690.0,
         "amount_krw_investment_base": 100186690.0,
-        "pct_total_assets": 0.86326809,
-        "pct_investment_base": 0.83236907
+        "pct_total_assets": 0.86329076,
+        "pct_investment_base": 0.83239587
       },
       {
         "listing_currency": "USD",
-        "amount_krw_total": 10203326.0,
-        "amount_krw_investment_base": 10203326.0,
-        "pct_total_assets": 0.06914542,
-        "pct_investment_base": 0.08477107
+        "amount_krw_total": 10199451.0,
+        "amount_krw_investment_base": 10199451.0,
+        "pct_total_assets": 0.06912097,
+        "pct_investment_base": 0.0847416
       },
       {
         "listing_currency": "JPY",
         "amount_krw_total": 9973286.0,
         "amount_krw_investment_base": 9973286.0,
-        "pct_total_assets": 0.06758649,
-        "pct_investment_base": 0.08285986
+        "pct_total_assets": 0.06758827,
+        "pct_investment_base": 0.08286252
       }
     ],
     "by_hedge_flag": [
       {
         "hedge_flag": "미분류",
-        "amount_krw_total": 111826947.0,
-        "amount_krw_investment_base": 84626947.0,
-        "pct_total_assets": 0.75782356,
-        "pct_investment_base": 0.70309592
+        "amount_krw_total": 111823072.0,
+        "amount_krw_investment_base": 84623072.0,
+        "pct_total_assets": 0.7578172,
+        "pct_investment_base": 0.70308636
       },
       {
         "hedge_flag": "O",
         "amount_krw_total": 35736355.0,
         "amount_krw_investment_base": 35736355.0,
-        "pct_total_assets": 0.24217644,
-        "pct_investment_base": 0.29690408
+        "pct_total_assets": 0.2421828,
+        "pct_investment_base": 0.29691364
       }
     ],
     "by_owner": [
       {
         "owner": "동연",
-        "amount_krw_total": 93346589.0,
-        "amount_krw_investment_base": 93346589.0,
-        "pct_total_assets": 0.63258675,
-        "pct_investment_base": 0.77554028
+        "amount_krw_total": 93342714.0,
+        "amount_krw_investment_base": 93342714.0,
+        "pct_total_assets": 0.6325771,
+        "pct_investment_base": 0.77553305
       },
       {
         "owner": "완서",
         "amount_krw_total": 54216713.0,
         "amount_krw_investment_base": 27016713.0,
-        "pct_total_assets": 0.36741325,
-        "pct_investment_base": 0.22445972
+        "pct_total_assets": 0.3674229,
+        "pct_investment_base": 0.22446695
       }
     ]
   },
@@ -459,9 +459,9 @@
       "name": "iShares 0-3 Month Treasury Bond ETF",
       "quantity": 236.0,
       "avg_price_foreign": 100.5358,
-      "avg_price_krw": 153524.1987,
+      "avg_price_krw": 153465.888,
       "purchase_amount_foreign": 23726.4488,
-      "purchase_amount_krw": 36231711.0,
+      "purchase_amount_krw": 36217950.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -492,9 +492,9 @@
       "name": "Vanguard Short-Term Inflation-Protected Securities Index Fund ETF Shares",
       "quantity": 54.0,
       "avg_price_foreign": 50.37,
-      "avg_price_krw": 76918.0122,
+      "avg_price_krw": 76888.7976,
       "purchase_amount_foreign": 2719.98,
-      "purchase_amount_krw": 4153573.0,
+      "purchase_amount_krw": 4151995.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -725,11 +725,11 @@
       "avg_price_foreign": null,
       "avg_price_krw": null,
       "purchase_amount_foreign": 6681.68,
-      "purchase_amount_krw": 10203326.0,
+      "purchase_amount_krw": 10199451.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": 6681.68,
-      "market_value_krw": 10203326.0,
+      "market_value_krw": 10199451.0,
       "pnl_rate": 0.0,
       "pnl_amount_krw": 0.0,
       "pe": null,
@@ -756,9 +756,9 @@
       "name": "아마존닷컴",
       "quantity": 18.0,
       "avg_price_foreign": 201.3106,
-      "avg_price_krw": 307413.3648,
+      "avg_price_krw": 307296.6047,
       "purchase_amount_foreign": 3623.5908,
-      "purchase_amount_krw": 5533441.0,
+      "purchase_amount_krw": 5531339.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -789,9 +789,9 @@
       "name": "S&P 500 뱅가드 ETF",
       "quantity": 6.0,
       "avg_price_foreign": 678.05,
-      "avg_price_krw": 1035423.033,
+      "avg_price_krw": 1035029.764,
       "purchase_amount_foreign": 4068.3,
-      "purchase_amount_krw": 6212538.0,
+      "purchase_amount_krw": 6210179.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -822,9 +822,9 @@
       "name": "알파벳 A",
       "quantity": 9.0,
       "avg_price_foreign": 314.4925,
-      "avg_price_krw": 480248.917,
+      "avg_price_krw": 480066.5114,
       "purchase_amount_foreign": 2830.4325,
-      "purchase_amount_krw": 4322240.0,
+      "purchase_amount_krw": 4320599.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -855,9 +855,9 @@
       "name": "TSMC(ADR)",
       "quantity": 8.0,
       "avg_price_foreign": 362.8433,
-      "avg_price_krw": 554083.4897,
+      "avg_price_krw": 553873.0406,
       "purchase_amount_foreign": 2902.7464,
-      "purchase_amount_krw": 4432668.0,
+      "purchase_amount_krw": 4430984.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -888,9 +888,9 @@
       "name": "엔비디아",
       "quantity": 13.0,
       "avg_price_foreign": 186.2285,
-      "avg_price_krw": 284382.0932,
+      "avg_price_krw": 284274.0807,
       "purchase_amount_foreign": 2420.9705,
-      "purchase_amount_krw": 3696967.0,
+      "purchase_amount_krw": 3695563.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -921,9 +921,9 @@
       "name": "일라이 릴리",
       "quantity": 2.0,
       "avg_price_foreign": 912.0,
-      "avg_price_krw": 1392678.72,
+      "avg_price_krw": 1392149.76,
       "purchase_amount_foreign": 1824.0,
-      "purchase_amount_krw": 2785357.0,
+      "purchase_amount_krw": 2784300.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
@@ -954,9 +954,9 @@
       "name": "미국 +20년 장기 국채",
       "quantity": 21.0,
       "avg_price_foreign": 85.6859,
-      "avg_price_krw": 130847.5105,
+      "avg_price_krw": 130797.8126,
       "purchase_amount_foreign": 1799.4039,
-      "purchase_amount_krw": 2747798.0,
+      "purchase_amount_krw": 2746754.0,
       "current_price_foreign": null,
       "current_price_krw": null,
       "market_value_foreign": null,
