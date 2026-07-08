@@ -283,8 +283,62 @@ def show_history(history_df: pd.DataFrame) -> None:
     if history_df.empty:
         st.info("아직 portfolio_history.csv가 없습니다. 로컬 자동화 패치를 적용한 뒤 업로드를 한 번 실행하면 추이가 표시됩니다.")
         return
-    chart = history_df.set_index("date")[[c for c in ["total_asset_krw", "investment_base_krw"] if c in history_df.columns]]
-    st.line_chart(chart, use_container_width=True)
+    chart_cols = [c for c in ["total_asset_krw", "investment_base_krw"] if c in history_df.columns]
+    chart_window = history_df.sort_values("date").tail(60).copy()
+    if chart_cols:
+        chart_window["date"] = pd.to_datetime(chart_window["date"], errors="coerce")
+        chart_window = chart_window.dropna(subset=["date"])
+        chart_values = chart_window[chart_cols].apply(pd.to_numeric, errors="coerce")
+        min_value = float(chart_values.min().min())
+        max_value = float(chart_values.max().max())
+        span = max_value - min_value
+        padding = max(span * 0.15, max(abs(max_value) * 0.003, 100000))
+        y_min = min_value - padding
+        y_max = max_value + padding
+        chart_data = chart_window[["date"] + chart_cols].melt("date", var_name="series", value_name="amount_krw")
+        chart_data["series"] = chart_data["series"].map(
+            {
+                "total_asset_krw": "총자산",
+                "investment_base_krw": "투자기준 총액",
+            }
+        ).fillna(chart_data["series"])
+        st.vega_lite_chart(
+            chart_data,
+            {
+                "mark": {"type": "line", "point": True, "strokeWidth": 3},
+                "encoding": {
+                    "x": {
+                        "field": "date",
+                        "type": "temporal",
+                        "axis": {
+                            "title": "날짜",
+                            "format": "%Y-%m-%d",
+                            "labelAngle": -35,
+                            "tickCount": min(len(chart_window), 8),
+                        },
+                    },
+                    "y": {
+                        "field": "amount_krw",
+                        "type": "quantitative",
+                        "scale": {"domain": [y_min, y_max], "zero": False},
+                        "axis": {"title": "금액(원)", "format": ",.0f"},
+                    },
+                    "color": {
+                        "field": "series",
+                        "type": "nominal",
+                        "title": "",
+                        "scale": {"range": ["#0f766e", "#dc2626"]},
+                    },
+                    "tooltip": [
+                        {"field": "date", "type": "temporal", "title": "날짜", "format": "%Y-%m-%d"},
+                        {"field": "series", "type": "nominal", "title": "구분"},
+                        {"field": "amount_krw", "type": "quantitative", "title": "금액", "format": ",.0f"},
+                    ],
+                },
+                "height": 420,
+            },
+            use_container_width=True,
+        )
     display = history_df.tail(30).copy()
     for col in [c for c in display.columns if c.endswith("pct") or c.endswith("_pct")]:
         display[col] = display[col].map(fmt_pct)
