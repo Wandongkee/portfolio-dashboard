@@ -71,10 +71,6 @@ def group_value(summary: dict[str, Any], key: str, label_col: str, label: str, v
     return 0.0
 
 
-def group_amount(summary: dict[str, Any], key: str, label_col: str, label: str) -> float:
-    return group_value(summary, key, label_col, label, "amount_krw_investment_base")
-
-
 def group_pct(summary: dict[str, Any], key: str, label_col: str, label: str) -> float:
     return group_value(summary, key, label_col, label, "pct_investment_base")
 
@@ -347,108 +343,6 @@ def show_history(history_df: pd.DataFrame) -> None:
     st.dataframe(display.sort_values("date", ascending=False), use_container_width=True, hide_index=True)
 
 
-def dca_allocation(monthly: float, stock_index_pct: float, drawdown: float) -> tuple[pd.DataFrame, float]:
-    if stock_index_pct < 0.45:
-        stock_ratio, mode = 0.60, "주식비중 회복 구간"
-    elif stock_index_pct < 0.50:
-        stock_ratio, mode = 0.50, "기본 DCA 구간"
-    elif stock_index_pct < 0.52:
-        stock_ratio, mode = 0.25, "감속 구간"
-    else:
-        stock_ratio, mode = 0.00, "DCA 중단 구간"
-    if stock_index_pct < 0.52:
-        if drawdown <= -0.10:
-            stock_ratio, mode = 1.00, "위험자산 보강: -10% 이상 조정"
-        elif drawdown <= -0.07:
-            stock_ratio, mode = 0.80, "위험자산 보강: -7% 이상 조정"
-        elif drawdown <= -0.05 and stock_index_pct < 0.50:
-            stock_ratio, mode = 0.70, "위험자산 보강: -5% 이상 조정"
-    stock_buy = round(monthly * stock_ratio / 10000) * 10000
-    cash_buy = monthly - stock_buy
-    df = pd.DataFrame([{"구간": mode, "월 유입액": monthly, "주식·지수": stock_buy, "단기채권·현금": cash_buy}])
-    return df, stock_buy
-
-
-def format_df(df: pd.DataFrame) -> pd.DataFrame:
-    display = df.copy()
-    for col in ["현재비중", "목표비중", "기준", "현재", "비중"]:
-        if col in display.columns:
-            display[col] = display[col].map(fmt_pct)
-    for col in ["현재금액", "목표금액", "추가필요액", "초과금액", "월 유입액", "주식·지수", "단기채권·현금", "금액"]:
-        if col in display.columns:
-            display[col] = display[col].map(fmt_krw)
-    return display
-
-
-def show_money_table(df: pd.DataFrame) -> None:
-    if df.empty:
-        st.info("표시할 데이터가 없습니다.")
-    else:
-        st.dataframe(format_df(df), use_container_width=True, hide_index=True)
-
-
-def target_row(name: str, current_amount: float, current_pct: float, target_pct: float, base: float) -> dict[str, Any]:
-    target_amount = base * target_pct
-    return {
-        "구분": name,
-        "현재비중": current_pct,
-        "목표비중": target_pct,
-        "현재금액": current_amount,
-        "목표금액": target_amount,
-        "추가필요액": max(target_amount - current_amount, 0),
-        "초과금액": max(current_amount - target_amount, 0),
-    }
-
-
-def show_rules(summary: dict[str, Any]) -> None:
-    base = num(summary.get("totals", {}).get("investment_base_krw"))
-    stock_amount = group_amount(summary, "by_asset_class1", "asset_class1", "개별주식")
-    stock_pct = group_pct(summary, "by_asset_class1", "asset_class1", "개별주식")
-    index_amount = group_amount(summary, "by_asset_class1", "asset_class1", "지수")
-    index_pct = group_pct(summary, "by_asset_class1", "asset_class1", "지수")
-    stock_index_amount = stock_amount + index_amount
-    stock_index_pct = stock_pct + index_pct
-    cash_pct = group_pct(summary, "by_asset_class1", "asset_class1", "현금")
-    short_pct = short_bond_pct(summary)
-    liquidity_pct = cash_pct + short_pct
-    gold_pct = group_pct(summary, "by_asset_class1", "asset_class1", "헷지")
-    usd_pct = group_pct(summary, "by_investment_currency", "investment_currency", "달러")
-    lb_pct = long_bond_pct(summary)
-
-    st.subheader("운용 룰")
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("주식+지수", fmt_pct(stock_index_pct))
-    c2.metric("장기채권", fmt_pct(lb_pct))
-    c3.metric("단기채권", fmt_pct(short_pct))
-    c4.metric("현금+단기채", fmt_pct(liquidity_pct))
-    c5.metric("금/헷지", fmt_pct(gold_pct))
-    c6.metric("달러 투자환종", fmt_pct(usd_pct))
-
-    targets = [
-        target_row("주식+지수 목표 하단", stock_index_amount, stock_index_pct, 0.45, base),
-        target_row("주식+지수 기본 상단", stock_index_amount, stock_index_pct, 0.50, base),
-        target_row("주식+지수 감속 상단", stock_index_amount, stock_index_pct, 0.52, base),
-        target_row("주식+지수 리밸런싱 검토선", stock_index_amount, stock_index_pct, 0.55, base),
-        target_row("장기채권 기준 목표", group_amount(summary, "by_asset_class1", "asset_class1", "장기채권"), lb_pct, 0.07, base),
-        target_row("장기채권 상단", group_amount(summary, "by_asset_class1", "asset_class1", "장기채권"), lb_pct, 0.08, base),
-        target_row("현금+단기채 하단", 0, liquidity_pct, 0.30, base),
-        target_row("현금+단기채 기준", 0, liquidity_pct, 0.40, base),
-        target_row("금/헷지 상단", 0, gold_pct, 0.12, base),
-        target_row("개별주식 상단", stock_amount, stock_pct, 0.20, base),
-    ]
-    show_money_table(pd.DataFrame(targets))
-
-    col1, col2 = st.columns(2)
-    with col1:
-        monthly = st.number_input("월 신규 현금유입", min_value=0, max_value=20_000_000, value=2_000_000, step=100_000, format="%d")
-    with col2:
-        drawdown = st.number_input("S&P500 또는 기준지수 고점 대비 하락률(%)", min_value=-80.0, max_value=30.0, value=0.0, step=0.5) / 100
-    allocation, stock_buy = dca_allocation(float(monthly), stock_index_pct, drawdown)
-    show_money_table(allocation)
-    if stock_buy <= 0:
-        st.info("현재 조건에서는 주식·지수 월 DCA가 중단되는 구간입니다.")
-
-
 st.sidebar.title("데이터 소스")
 source = st.sidebar.radio("읽기 방식", ["로컬 web_data", "URL 직접 입력"], index=0)
 
@@ -508,7 +402,7 @@ f3.metric("JPY 1엔/KRW", fmt_num(fx.get("jpy_1_krw_sell_rate"), 4))
 
 st.divider()
 
-tab_summary, tab_holdings, tab_history, tab_rules = st.tabs(["요약", "보유내역", "추이", "운용 룰"])
+tab_summary, tab_holdings, tab_history = st.tabs(["요약", "보유내역", "추이"])
 
 with tab_summary:
     show_checkpoint_metrics(summary_json)
@@ -580,6 +474,3 @@ with tab_history:
     show_history(history_df)
     if not history_df.empty:
         st.download_button("추이 CSV 다운로드", history_df.to_csv(index=False).encode("utf-8-sig"), "portfolio_history.csv", "text/csv")
-
-with tab_rules:
-    show_rules(summary_json)
