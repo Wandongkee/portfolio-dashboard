@@ -16,6 +16,9 @@ SUMMARY_PATH = DATA_DIR / "portfolio_summary.json"
 HOLDINGS_PATH = DATA_DIR / "portfolio_holdings.csv"
 HISTORY_PATH = DATA_DIR / "portfolio_history.csv"
 
+RISK_ASSET_CLASSES = {"개별주식", "지수", "장기채권", "헷지"}
+SAFE_ASSET_CLASSES = {"현금", "예금", "단기채권"}
+
 st.set_page_config(page_title="포트폴리오 대시보드", page_icon="📊", layout="wide")
 
 
@@ -72,7 +75,7 @@ def group_value(summary: dict[str, Any], key: str, label_col: str, label: str, v
 
 
 def group_pct(summary: dict[str, Any], key: str, label_col: str, label: str) -> float:
-    return group_value(summary, key, label_col, label, "pct_investment_base")
+    return group_value(summary, key, label_col, label, "pct_total_assets")
 
 
 def long_bond_pct(summary: dict[str, Any]) -> float:
@@ -212,17 +215,18 @@ def show_percent_table(df: pd.DataFrame) -> None:
         "hedge_flag": "환헤지",
         "owner": "소유자",
         "amount_krw_total": "총자산 기준 금액",
-        "amount_krw_investment_base": "투자기준 금액",
         "pct_total_assets": "총자산 비중",
-        "pct_investment_base": "투자기준 비중",
     }
-    display = df.rename(columns=rename).copy()
+    display = df.drop(
+        columns=["amount_krw_investment_base", "pct_investment_base"],
+        errors="ignore",
+    ).rename(columns=rename).copy()
     column_config = {}
-    for col in ["총자산 기준 금액", "투자기준 금액"]:
+    for col in ["총자산 기준 금액"]:
         if col in display.columns:
             display[col] = pd.to_numeric(display[col], errors="coerce").fillna(0)
             column_config[col] = st.column_config.NumberColumn(col, format="%.0f원")
-    for col in ["총자산 비중", "투자기준 비중"]:
+    for col in ["총자산 비중"]:
         if col in display.columns:
             display[col] = pd.to_numeric(display[col], errors="coerce").fillna(0) * 100
             column_config[col] = st.column_config.NumberColumn(col, format="%.2f%%")
@@ -231,16 +235,16 @@ def show_percent_table(df: pd.DataFrame) -> None:
 
 def show_asset_class1_pie(summary: dict[str, Any]) -> None:
     asset1_df = table(summary, "by_asset_class1")
-    if asset1_df.empty or "asset_class1" not in asset1_df.columns or "pct_investment_base" not in asset1_df.columns:
+    if asset1_df.empty or "asset_class1" not in asset1_df.columns or "pct_total_assets" not in asset1_df.columns:
         st.info("원형그래프를 표시할 데이터가 없습니다.")
         return
-    chart_df = asset1_df[["asset_class1", "pct_investment_base"]].copy()
-    chart_df["pct_investment_base"] = pd.to_numeric(chart_df["pct_investment_base"], errors="coerce").fillna(0)
-    chart_df = chart_df[chart_df["pct_investment_base"] > 0]
+    chart_df = asset1_df[["asset_class1", "pct_total_assets"]].copy()
+    chart_df["pct_total_assets"] = pd.to_numeric(chart_df["pct_total_assets"], errors="coerce").fillna(0)
+    chart_df = chart_df[chart_df["pct_total_assets"] > 0]
     if chart_df.empty:
         st.info("원형그래프를 표시할 데이터가 없습니다.")
         return
-    chart_df = chart_df.rename(columns={"asset_class1": "자산구분1", "pct_investment_base": "비중"})
+    chart_df = chart_df.rename(columns={"asset_class1": "자산구분1", "pct_total_assets": "비중"})
     chart_df["비중"] = chart_df["비중"] * 100
     st.vega_lite_chart(
         chart_df,
@@ -264,8 +268,8 @@ def show_checkpoint_metrics(summary: dict[str, Any]) -> None:
     asset1_df = table(summary, "by_asset_class1")
     if not asset1_df.empty:
         for _, row in asset1_df.iterrows():
-            asset_pct[text(row.get("asset_class1"))] = num(row.get("pct_investment_base"))
-    st.subheader("핵심 비중 체크포인트")
+            asset_pct[text(row.get("asset_class1"))] = num(row.get("pct_total_assets"))
+    st.subheader("핵심 비중 체크포인트 · 총자산 기준")
     r1, r2, r3, r4, r5 = st.columns(5)
     r1.metric("주식+지수", fmt_pct(asset_pct.get("개별주식", 0) + asset_pct.get("지수", 0)))
     r2.metric("장기채권", fmt_pct(long_bond_pct(summary)))
@@ -274,12 +278,81 @@ def show_checkpoint_metrics(summary: dict[str, Any]) -> None:
     r5.metric("금/헷지", fmt_pct(asset_pct.get("헷지", 0)))
 
 
+def show_risk_safe_allocation(summary: dict[str, Any]) -> None:
+    asset_rows = rows(summary, "by_asset_class1")
+    total_asset = num(summary.get("totals", {}).get("total_asset_krw"))
+
+    risk_amount = sum(
+        num(row.get("amount_krw_total"))
+        for row in asset_rows
+        if text(row.get("asset_class1")) in RISK_ASSET_CLASSES
+    )
+    safe_amount = sum(
+        num(row.get("amount_krw_total"))
+        for row in asset_rows
+        if text(row.get("asset_class1")) in SAFE_ASSET_CLASSES
+    )
+    other_amount = max(total_asset - risk_amount - safe_amount, 0)
+
+    risk_pct = risk_amount / total_asset if total_asset else 0
+    safe_pct = safe_amount / total_asset if total_asset else 0
+    other_pct = other_amount / total_asset if total_asset else 0
+
+    st.subheader("위험자산·안전자산 비중")
+    metric_cols = st.columns(3 if other_pct > 0.00005 else 2)
+    metric_cols[0].metric("위험자산", fmt_pct(risk_pct))
+    metric_cols[0].caption(fmt_krw(risk_amount))
+    metric_cols[1].metric("안전자산", fmt_pct(safe_pct))
+    metric_cols[1].caption(fmt_krw(safe_amount))
+    if other_pct > 0.00005:
+        metric_cols[2].metric("기타·미분류", fmt_pct(other_pct))
+        metric_cols[2].caption(fmt_krw(other_amount))
+
+    chart_rows = [
+        {"기준": "총자산", "구분": "위험자산", "비중": risk_pct * 100},
+        {"기준": "총자산", "구분": "안전자산", "비중": safe_pct * 100},
+    ]
+    if other_pct > 0.00005:
+        chart_rows.append({"기준": "총자산", "구분": "기타·미분류", "비중": other_pct * 100})
+    st.vega_lite_chart(
+        pd.DataFrame(chart_rows),
+        {
+            "mark": {"type": "bar", "height": 34, "cornerRadius": 4},
+            "encoding": {
+                "x": {
+                    "field": "비중",
+                    "type": "quantitative",
+                    "stack": "zero",
+                    "scale": {"domain": [0, 100]},
+                    "axis": {"title": "총자산 비중(%)"},
+                },
+                "y": {"field": "기준", "type": "nominal", "axis": None},
+                "color": {
+                    "field": "구분",
+                    "type": "nominal",
+                    "legend": {"orient": "bottom"},
+                    "scale": {
+                        "domain": ["위험자산", "안전자산", "기타·미분류"],
+                        "range": ["#dc2626", "#0f766e", "#94a3b8"],
+                    },
+                },
+                "tooltip": [
+                    {"field": "구분", "type": "nominal"},
+                    {"field": "비중", "type": "quantitative", "format": ".2f", "title": "비중(%)"},
+                ],
+            },
+        },
+        use_container_width=True,
+    )
+    st.caption("위험자산: 개별주식·지수·장기채권·금(헷지) / 안전자산: 현금·예금·단기채권")
+
+
 def show_history(history_df: pd.DataFrame) -> None:
     st.subheader("포트폴리오 추이")
     if history_df.empty:
         st.info("아직 portfolio_history.csv가 없습니다. 로컬 자동화 패치를 적용한 뒤 업로드를 한 번 실행하면 추이가 표시됩니다.")
         return
-    chart_cols = [c for c in ["total_asset_krw", "investment_base_krw"] if c in history_df.columns]
+    chart_cols = [c for c in ["total_asset_krw"] if c in history_df.columns]
     chart_window = history_df.sort_values("date").tail(60).copy()
     if chart_cols:
         chart_window["date"] = pd.to_datetime(chart_window["date"], errors="coerce")
@@ -295,7 +368,6 @@ def show_history(history_df: pd.DataFrame) -> None:
         chart_data["series"] = chart_data["series"].map(
             {
                 "total_asset_krw": "총자산",
-                "investment_base_krw": "투자기준 총액",
             }
         ).fillna(chart_data["series"])
         st.vega_lite_chart(
@@ -323,7 +395,7 @@ def show_history(history_df: pd.DataFrame) -> None:
                         "field": "series",
                         "type": "nominal",
                         "title": "",
-                        "scale": {"range": ["#0f766e", "#dc2626"]},
+                        "scale": {"range": ["#0f766e"]},
                     },
                     "tooltip": [
                         {"field": "date", "type": "temporal", "title": "날짜", "format": "%Y-%m-%d"},
@@ -335,7 +407,10 @@ def show_history(history_df: pd.DataFrame) -> None:
             },
             use_container_width=True,
         )
-    display = history_df.tail(30).copy()
+    display = history_df.tail(30).drop(
+        columns=[c for c in history_df.columns if "investment_base" in c],
+        errors="ignore",
+    ).copy()
     for col in [c for c in display.columns if c.endswith("pct") or c.endswith("_pct")]:
         display[col] = display[col].map(fmt_pct)
     for col in [c for c in display.columns if c.endswith("krw") or c.endswith("_krw")]:
@@ -377,22 +452,16 @@ st.title("포트폴리오 대시보드")
 st.caption("포트폴리오.xlsx → Python 가격/환율 업데이트 → web_data CSV·JSON 생성 → Streamlit 표시")
 st.write(f"기준 파일: `{summary_json.get('source_file', '-')}` / 생성시각: `{generated_at(summary_json.get('generated_at'))}`")
 
-if summary_json.get("method_note"):
-    with st.expander("계산 기준"):
-        st.write(summary_json["method_note"])
+st.caption("대시보드의 모든 비중과 체크포인트는 총자산 기준입니다.")
 
 prev_total_delta, prev_total_delta_pct = value_delta(history_df, "total_asset_krw")
 thirty_total_delta, thirty_total_delta_pct = value_delta(history_df, "total_asset_krw", days=30)
-prev_base_delta, prev_base_delta_pct = value_delta(history_df, "investment_base_krw")
-
-m1, m2, m3, m4 = st.columns(4)
+m1, m2, m3 = st.columns(3)
 with m1:
     show_metric("총자산", totals.get("total_asset_krw"), prev_total_delta, prev_total_delta_pct)
 with m2:
-    show_metric("투자기준 총액", totals.get("investment_base_krw"), prev_base_delta, prev_base_delta_pct)
-with m3:
     show_metric("최근 30일 총자산", totals.get("total_asset_krw"), thirty_total_delta, thirty_total_delta_pct)
-with m4:
+with m3:
     st.metric("보유행 수", f"{int(num(totals.get('holding_count'))):,}개")
 
 f1, f2, f3 = st.columns(3)
@@ -406,6 +475,7 @@ tab_summary, tab_holdings, tab_history = st.tabs(["요약", "보유내역", "추
 
 with tab_summary:
     show_checkpoint_metrics(summary_json)
+    show_risk_safe_allocation(summary_json)
     st.divider()
     c1, c2 = st.columns(2)
     with c1:
@@ -456,7 +526,6 @@ with tab_holdings:
         "roe",
         "debt_ratio",
         "dividend_yield",
-        "include_in_investment_base",
     ]
     cols = [c for c in cols if c in filtered_df.columns]
     display_df = filtered_df[cols].copy()
