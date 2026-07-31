@@ -16,7 +16,7 @@ SUMMARY_PATH = DATA_DIR / "portfolio_summary.json"
 HOLDINGS_PATH = DATA_DIR / "portfolio_holdings.csv"
 HISTORY_PATH = DATA_DIR / "portfolio_history.csv"
 
-RISK_ASSET_CLASSES = {"개별주식", "지수", "장기채권", "헷지"}
+RISK_ASSET_CLASSES = {"개별주식", "지수", "장기채권"}
 SAFE_ASSET_CLASSES = {"현금", "예금", "단기채권"}
 
 st.set_page_config(page_title="포트폴리오 대시보드", page_icon="📊", layout="wide")
@@ -308,43 +308,7 @@ def show_risk_safe_allocation(summary: dict[str, Any]) -> None:
         metric_cols[2].metric("기타·미분류", fmt_pct(other_pct))
         metric_cols[2].caption(fmt_krw(other_amount))
 
-    chart_rows = [
-        {"기준": "총자산", "구분": "위험자산", "비중": risk_pct * 100},
-        {"기준": "총자산", "구분": "안전자산", "비중": safe_pct * 100},
-    ]
-    if other_pct > 0.00005:
-        chart_rows.append({"기준": "총자산", "구분": "기타·미분류", "비중": other_pct * 100})
-    st.vega_lite_chart(
-        pd.DataFrame(chart_rows),
-        {
-            "mark": {"type": "bar", "height": 34, "cornerRadius": 4},
-            "encoding": {
-                "x": {
-                    "field": "비중",
-                    "type": "quantitative",
-                    "stack": "zero",
-                    "scale": {"domain": [0, 100]},
-                    "axis": {"title": "총자산 비중(%)"},
-                },
-                "y": {"field": "기준", "type": "nominal", "axis": None},
-                "color": {
-                    "field": "구분",
-                    "type": "nominal",
-                    "legend": {"orient": "bottom"},
-                    "scale": {
-                        "domain": ["위험자산", "안전자산", "기타·미분류"],
-                        "range": ["#dc2626", "#0f766e", "#94a3b8"],
-                    },
-                },
-                "tooltip": [
-                    {"field": "구분", "type": "nominal"},
-                    {"field": "비중", "type": "quantitative", "format": ".2f", "title": "비중(%)"},
-                ],
-            },
-        },
-        use_container_width=True,
-    )
-    st.caption("위험자산: 개별주식·지수·장기채권·금(헷지) / 안전자산: 현금·예금·단기채권")
+    st.caption("위험자산: 개별주식·지수·장기채권 / 안전자산: 현금·예금·단기채권 / 기타·미분류: 금(헷지)")
 
 
 def show_history(history_df: pd.DataFrame) -> None:
