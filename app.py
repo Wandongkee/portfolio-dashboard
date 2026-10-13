@@ -382,6 +382,269 @@ def show_history(history_df: pd.DataFrame) -> None:
     st.dataframe(display.sort_values("date", ascending=False), use_container_width=True, hide_index=True)
 
 
+# ---------------------------------------------------------------------------
+# 투자기준 (2026-10-13 확정) — 기준 변경 시 아래 상수만 수정
+# ---------------------------------------------------------------------------
+POLICY_DATE = "2026-10-13"
+POLICY_TARGET_RETURN = 0.067  # 서울 아파트 장기 평균 상승률 (KB 시계열 1986~2023)
+
+# 자산구분1 → 정책 버킷
+POLICY_BUCKET_MAP = {
+    "지수": "주식",
+    "개별주식": "주식",
+    "장기채권": "장기채",
+    "헷지": "금",
+    "단기채권": "단기채·현금·예금",
+    "현금": "단기채·현금·예금",
+    "예금": "단기채·현금·예금",
+}
+# (버킷, 목표, 하한, 상한) — 투자기준 총액 대비
+POLICY_ALLOCATION = [
+    ("주식", 0.70, 0.65, 0.75),
+    ("장기채", 0.10, 0.05, 0.10),
+    ("금", 0.10, 0.07, 0.13),
+    ("단기채·현금·예금", 0.10, 0.10, 0.15),
+]
+# 주식 내부 (주식 = 100)
+POLICY_EQUITY_SPLIT = [
+    ("지수", 0.80, 0.75, 0.85),
+    ("개별주식", 0.20, 0.15, 0.25),
+]
+POLICY_EQUAL_WEIGHT_CLASS2 = "S&P500동일가중"
+POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY = 0.20
+POLICY_USD_MIN = 0.50
+POLICY_SINGLE_STOCK_MAX = 0.10
+POLICY_SINGLE_STOCK_REVIEW_LOSS = -0.30
+# 투자기준에서 제외할 행: 이름/자산구분2에 아래 키워드 포함 (주택청약저축)
+POLICY_EXCLUDE_KEYWORDS = ["청약"]
+
+
+def policy_base_holdings(df: pd.DataFrame) -> pd.DataFrame:
+    """투자기준 대상 행: 주택청약 제외, 적금 포함 (엑셀의 include 플래그와 무관하게 판정)."""
+    result = df.copy()
+    result["market_value_krw"] = pd.to_numeric(result.get("market_value_krw"), errors="coerce").fillna(0)
+    label = (
+        result.get("name", pd.Series("", index=result.index)).fillna("").astype(str)
+        + " "
+        + result.get("asset_class2", pd.Series("", index=result.index)).fillna("").astype(str)
+    )
+    excluded = label.apply(lambda s: any(k in s for k in POLICY_EXCLUDE_KEYWORDS))
+    result = result[~excluded & (result["market_value_krw"] != 0)].copy()
+    result["policy_bucket"] = result["asset_class1"].map(POLICY_BUCKET_MAP).fillna("미분류")
+    return result
+
+
+def policy_status(current: float, low: float, high: float) -> str:
+    if current < low - 1e-9:
+        return "🔻 하한 미달"
+    if current > high + 1e-9:
+        return "🔺 상한 초과"
+    return "✅ 범위 내"
+
+
+def policy_target_table(amounts: dict[str, float], base: float, spec: list[tuple[str, float, float, float]]) -> pd.DataFrame:
+    records = []
+    for name, target, low, high in spec:
+        current = amounts.get(name, 0.0)
+        pct = current / base if base else 0.0
+        target_amount = base * target
+        if pct < low:
+            band_adjust = base * low - current
+        elif pct > high:
+            band_adjust = base * high - current
+        else:
+            band_adjust = 0.0
+        records.append(
+            {
+                "구분": name,
+                "현재 금액": current,
+                "현재 비중": pct * 100,
+                "목표 비중": target * 100,
+                "허용범위": f"{low * 100:.0f}~{high * 100:.0f}%",
+                "목표 금액": target_amount,
+                "목표까지 조정액": target_amount - current,
+                "범위 복귀 최소 조정액": band_adjust,
+                "상태": policy_status(pct, low, high),
+            }
+        )
+    return pd.DataFrame(records)
+
+
+POLICY_TABLE_CONFIG = {
+    "현재 금액": st.column_config.NumberColumn("현재 금액", format="%,.0f원"),
+    "현재 비중": st.column_config.NumberColumn("현재 비중", format="%.1f%%"),
+    "목표 비중": st.column_config.NumberColumn("목표 비중", format="%.0f%%"),
+    "목표 금액": st.column_config.NumberColumn("목표 금액", format="%,.0f원"),
+    "목표까지 조정액": st.column_config.NumberColumn("목표까지 조정액 (+매수 / −매도)", format="%+,.0f원"),
+    "범위 복귀 최소 조정액": st.column_config.NumberColumn("범위 복귀 최소 조정액", format="%+,.0f원"),
+}
+
+
+def show_policy_rules() -> None:
+    with st.expander(f"📋 투자기준 원문 ({POLICY_DATE} 확정)", expanded=False):
+        st.markdown(
+            f"""
+**전제** · 투자기간 10년(2026.10~2036), 10년 후 서울 내집마련 · 출금 없음 · 월 적립 200만원(적금 100 + 현금 100)
+· 비상금 별도 고려 안 함 · 계좌: ISA 2개(명의별) + 해외직접투자 1개
+
+**목표수익률** · 연 {POLICY_TARGET_RETURN * 100:.1f}% (서울 아파트 장기 평균, KB 시계열 1986~2023) · 매년 서울 아파트 매매가격지수(한국부동산원)와 비교
+
+**투자기준 총액** · 투자자산 + 적금 포함 / 주택청약저축 제외
+
+**자산 목표비중** · 주식 70%(65~75) · 장기채 10%(5~10) · 금 10%(7~13) · 단기채·현금·예금 10%(10~15)
+· 고물가·금리상승 국면: 장기채 하단(5%), 단기채·물가채 상단(15%)으로 기울일 수 있음
+
+**주식 내부** · 지수 80%(75~85) / 개별주식 20%(15~25) · 동일가중은 주식의 20% 이내(하한 없음), 신규 지수 매수는 시가총액가중으로 · 미국 외 지역 지수 미편입
+
+**리밸런싱** · 허용범위 이탈 시 조정 · 월 적립금은 부족 자산에 우선 투입 · 주식 70% 이행은 6~12개월 분할
+· 목표비중은 시황으로 바꾸지 않고 연 1회(가을, J.P. Morgan LTCMA 발표 후) 재검토
+
+**통화** · 달러 노출 투자기준의 {POLICY_USD_MIN * 100:.0f}% 이상 (환헤지 ETF는 원화로 계산)
+
+**개별주식** · 종목당 투자기준의 {POLICY_SINGLE_STOCK_MAX * 100:.0f}% 초과 시 리밸런싱 검토 · {POLICY_SINGLE_STOCK_REVIEW_LOSS * 100:.0f}% 도달 시 투자 논리 재검토(자동 매도 아님)
+
+**지수 ETF** · 손절 기준 없음
+
+**설정하지 않은 항목** · 목표 주택·필요 자기자본 · 주택 구입 전 위험자산 축소 일정 · 비상금
+"""
+        )
+
+
+def show_policy_tab(holdings: pd.DataFrame) -> None:
+    base_df = policy_base_holdings(holdings)
+    base = float(base_df["market_value_krw"].sum())
+    if base <= 0:
+        st.info("투자기준 금액을 계산할 데이터가 없습니다.")
+        return
+
+    st.subheader("투자기준 점검")
+    st.caption(
+        "투자기준 총액 = 전체 보유자산 − 주택청약저축 (적금 포함). 보유내역 필터와 무관하게 전체 행 기준으로 계산합니다. "
+        "조정액: + 매수 필요 / − 매도 필요"
+    )
+    show_policy_rules()
+
+    bucket_amounts = base_df.groupby("policy_bucket")["market_value_krw"].sum().to_dict()
+    equity_df = base_df[base_df["policy_bucket"] == "주식"]
+    equity_total = float(equity_df["market_value_krw"].sum())
+    equity_amounts = equity_df.groupby("asset_class1")["market_value_krw"].sum().to_dict()
+    equal_weight = float(equity_df.loc[equity_df["asset_class2"] == POLICY_EQUAL_WEIGHT_CLASS2, "market_value_krw"].sum())
+    usd_amount = float(base_df.loc[base_df["investment_currency"] == "달러", "market_value_krw"].sum())
+    usd_pct = usd_amount / base
+
+    alloc_df = policy_target_table(bucket_amounts, base, POLICY_ALLOCATION)
+    equity_split_df = policy_target_table(equity_amounts, equity_total, POLICY_EQUITY_SPLIT)
+
+    # 개별종목 (티커 기준 합산, 소유자 통합)
+    stock_df = base_df[base_df["asset_class1"] == "개별주식"].copy()
+    stock_df["purchase_amount_krw"] = pd.to_numeric(stock_df.get("purchase_amount_krw"), errors="coerce").fillna(0)
+    stock_df["key"] = stock_df["ticker"].fillna(stock_df["name"])
+    stocks = (
+        stock_df.groupby("key")
+        .agg(name=("name", "first"), market_value_krw=("market_value_krw", "sum"), purchase_amount_krw=("purchase_amount_krw", "sum"))
+        .reset_index()
+    )
+    stocks["weight"] = stocks["market_value_krw"] / base
+    stocks["pnl_rate"] = stocks.apply(
+        lambda r: r["market_value_krw"] / r["purchase_amount_krw"] - 1 if r["purchase_amount_krw"] else 0.0, axis=1
+    )
+
+    # 상단 요약 지표
+    alerts = int((alloc_df["상태"] != "✅ 범위 내").sum()) + int((equity_split_df["상태"] != "✅ 범위 내").sum())
+    alerts += int(equal_weight / equity_total > POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY) if equity_total else 0
+    alerts += int(usd_pct < POLICY_USD_MIN)
+    alerts += int((stocks["weight"] > POLICY_SINGLE_STOCK_MAX).sum())
+    alerts += int((stocks["pnl_rate"] <= POLICY_SINGLE_STOCK_REVIEW_LOSS).sum())
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("투자기준 총액", fmt_krw(base))
+    k2.metric("주식 비중 (목표 70%)", fmt_pct(bucket_amounts.get("주식", 0) / base))
+    k3.metric("달러 노출 (기준 ≥50%)", fmt_pct(usd_pct))
+    k4.metric("점검 필요 항목", f"{alerts}건")
+
+    st.markdown("#### ① 자산 목표비중 · 투자기준 총액 대비")
+    st.dataframe(alloc_df, use_container_width=True, hide_index=True, column_config=POLICY_TABLE_CONFIG)
+    st.caption(
+        "목표까지 조정액: 목표비중을 정확히 맞출 때의 금액 / 범위 복귀 최소 조정액: 허용범위 경계까지만 맞출 때의 금액(범위 내면 0). "
+        "주식 70% 이행은 6~12개월 분할 매수."
+    )
+
+    st.markdown("#### ② 주식 내부 비중 · 주식 합계 대비")
+    st.dataframe(equity_split_df, use_container_width=True, hide_index=True, column_config=POLICY_TABLE_CONFIG)
+    ew_pct = equal_weight / equity_total if equity_total else 0.0
+    target_equity = base * POLICY_ALLOCATION[0][1]
+    stock_at_target = equity_amounts.get("개별주식", 0.0) / target_equity if target_equity else 0.0
+    st.caption(
+        f"현재 주식 합계 기준 수치입니다. 주식이 목표 {POLICY_ALLOCATION[0][1] * 100:.0f}%({fmt_krw(target_equity)})에 도달하면, "
+        f"지수 추가 매수만으로 개별주식 비중이 {stock_at_target * 100:.1f}%가 됩니다 — 주식 확대 중에는 개별주식 매도보다 지수 매수로 맞추는 것을 우선."
+    )
+    st.caption(
+        f"동일가중(S&P500동일가중): 주식의 {ew_pct * 100:.1f}% · 상한 {POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY * 100:.0f}% "
+        f"{'✅' if ew_pct <= POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY else '🔺 상한 초과'} — 시가총액가중과의 비율은 고정하지 않음, 신규 지수 매수는 시가총액가중으로."
+    )
+
+    st.markdown("#### ③ 규칙 점검")
+    checks = [
+        {
+            "규칙": "달러 노출 ≥ 50% (환헤지 ETF는 원화)",
+            "현재": f"{usd_pct * 100:.1f}% ({fmt_krw(usd_amount)})",
+            "상태": "✅ 충족" if usd_pct >= POLICY_USD_MIN else "🔻 미달",
+        },
+        {
+            "규칙": "동일가중 ≤ 주식의 20%",
+            "현재": f"{ew_pct * 100:.1f}% ({fmt_krw(equal_weight)})",
+            "상태": "✅ 충족" if ew_pct <= POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY else "🔺 초과",
+        },
+    ]
+    st.dataframe(pd.DataFrame(checks), use_container_width=True, hide_index=True)
+
+    st.markdown("#### ④ 개별종목 점검 · 종목당 10% 초과 시 리밸런싱 검토 / −30% 도달 시 투자논리 재검토")
+    if stocks.empty:
+        st.info("개별주식 보유 내역이 없습니다.")
+    else:
+        stock_view = stocks.sort_values("market_value_krw", ascending=False).copy()
+        stock_view["비중 점검"] = stock_view["weight"].apply(lambda w: "🔺 10% 초과 · 리밸런싱 검토" if w > POLICY_SINGLE_STOCK_MAX else "✅")
+        stock_view["손실 점검"] = stock_view["pnl_rate"].apply(
+            lambda p: "⚠️ −30% 도달 · 투자논리 재검토" if p <= POLICY_SINGLE_STOCK_REVIEW_LOSS else "✅"
+        )
+        stock_view = stock_view.rename(
+            columns={"key": "티커", "name": "종목명", "market_value_krw": "평가금액", "weight": "투자기준 비중", "pnl_rate": "수익률"}
+        )[["티커", "종목명", "평가금액", "투자기준 비중", "수익률", "비중 점검", "손실 점검"]]
+        stock_view["투자기준 비중"] = stock_view["투자기준 비중"] * 100
+        stock_view["수익률"] = stock_view["수익률"] * 100
+        st.dataframe(
+            stock_view,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "평가금액": st.column_config.NumberColumn("평가금액", format="%,.0f원"),
+                "투자기준 비중": st.column_config.NumberColumn("투자기준 비중", format="%.2f%%"),
+                "수익률": st.column_config.NumberColumn("수익률(합산)", format="%+.1f%%"),
+            },
+        )
+        st.caption("같은 티커는 소유자·계좌를 합산합니다. 지수 ETF는 손절 기준 없음.")
+
+    with st.expander("투자기준 포함 행 상세"):
+        detail = base_df[["owner", "account", "policy_bucket", "asset_class1", "asset_class2", "investment_currency", "name", "market_value_krw"]].rename(
+            columns={
+                "owner": "소유자",
+                "account": "계좌",
+                "policy_bucket": "정책 버킷",
+                "asset_class1": "자산구분1",
+                "asset_class2": "자산구분2",
+                "investment_currency": "투자환종",
+                "name": "종목명",
+                "market_value_krw": "평가금액",
+            }
+        )
+        st.dataframe(
+            detail.sort_values(["정책 버킷", "평가금액"], ascending=[True, False]),
+            use_container_width=True,
+            hide_index=True,
+            column_config={"평가금액": st.column_config.NumberColumn("평가금액", format="%,.0f원")},
+        )
+
+
 st.sidebar.title("데이터 소스")
 source = st.sidebar.radio("읽기 방식", ["로컬 web_data", "URL 직접 입력"], index=0)
 
@@ -435,7 +698,10 @@ f3.metric("JPY 1엔/KRW", fmt_num(fx.get("jpy_1_krw_sell_rate"), 4))
 
 st.divider()
 
-tab_summary, tab_holdings, tab_history = st.tabs(["요약", "보유내역", "추이"])
+tab_summary, tab_policy, tab_holdings, tab_history = st.tabs(["요약", "투자기준", "보유내역", "추이"])
+
+with tab_policy:
+    show_policy_tab(holdings_df)
 
 with tab_summary:
     show_checkpoint_metrics(summary_json)
