@@ -413,6 +413,7 @@ POLICY_EQUITY_SPLIT = [
 POLICY_EQUAL_WEIGHT_CLASS2 = "S&P500동일가중"
 POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY = 0.20
 POLICY_USD_MIN = 0.50
+POLICY_USD_MAX = 0.70  # 2026-11-09 상한 추가 (목표 자금이 원화)
 POLICY_SINGLE_STOCK_MAX = 0.10
 POLICY_SINGLE_STOCK_REVIEW_LOSS = -0.30
 # 투자기준에서 제외할 행: 이름/자산구분2에 아래 키워드 포함 (주택청약저축)
@@ -499,7 +500,7 @@ def show_policy_rules() -> None:
 **리밸런싱** · 허용범위 이탈 시 조정 · 월 적립금은 부족 자산에 우선 투입 · 주식 70% 이행은 6~12개월 분할
 · 목표비중은 시황으로 바꾸지 않고 연 1회(가을, J.P. Morgan LTCMA 발표 후) 재검토
 
-**통화** · 달러 노출 투자기준의 {POLICY_USD_MIN * 100:.0f}% 이상 (환헤지 ETF는 원화로 계산)
+**통화** · 달러 노출 투자기준의 {POLICY_USD_MIN * 100:.0f}~{POLICY_USD_MAX * 100:.0f}% (환헤지 ETF는 원화로 계산) · 범위 안에서는 환율 수준으로 조정하지 않음 · 상한 초과 시 환헤지형, 하한 미달 시 환노출형으로 조정
 
 **개별주식** · 종목당 투자기준의 {POLICY_SINGLE_STOCK_MAX * 100:.0f}% 초과 시 리밸런싱 검토 · {POLICY_SINGLE_STOCK_REVIEW_LOSS * 100:.0f}% 도달 시 투자 논리 재검토(자동 매도 아님)
 
@@ -552,14 +553,14 @@ def show_policy_tab(holdings: pd.DataFrame) -> None:
     # 상단 요약 지표
     alerts = int((alloc_df["상태"] != "✅ 범위 내").sum()) + int((equity_split_df["상태"] != "✅ 범위 내").sum())
     alerts += int(equal_weight / equity_total > POLICY_EQUAL_WEIGHT_MAX_OF_EQUITY) if equity_total else 0
-    alerts += int(usd_pct < POLICY_USD_MIN)
+    alerts += int(not (POLICY_USD_MIN <= usd_pct <= POLICY_USD_MAX))
     alerts += int((stocks["weight"] > POLICY_SINGLE_STOCK_MAX).sum())
     alerts += int((stocks["pnl_rate"] <= POLICY_SINGLE_STOCK_REVIEW_LOSS).sum())
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("투자기준 총액", fmt_krw(base))
     k2.metric("주식 비중 (목표 70%)", fmt_pct(bucket_amounts.get("주식", 0) / base))
-    k3.metric("달러 노출 (기준 ≥50%)", fmt_pct(usd_pct))
+    k3.metric(f"달러 노출 (기준 {POLICY_USD_MIN * 100:.0f}~{POLICY_USD_MAX * 100:.0f}%)", fmt_pct(usd_pct))
     k4.metric("점검 필요 항목", f"{alerts}건")
 
     st.markdown("#### ① 자산 목표비중 · 투자기준 총액 대비")
@@ -586,9 +587,9 @@ def show_policy_tab(holdings: pd.DataFrame) -> None:
     st.markdown("#### ③ 규칙 점검")
     checks = [
         {
-            "규칙": "달러 노출 ≥ 50% (환헤지 ETF는 원화)",
+            "규칙": f"달러 노출 {POLICY_USD_MIN * 100:.0f}~{POLICY_USD_MAX * 100:.0f}% (환헤지 ETF는 원화)",
             "현재": f"{usd_pct * 100:.1f}% ({fmt_krw(usd_amount)})",
-            "상태": "✅ 충족" if usd_pct >= POLICY_USD_MIN else "🔻 미달",
+            "상태": "🔻 하한 미달" if usd_pct < POLICY_USD_MIN else ("🔺 상한 초과" if usd_pct > POLICY_USD_MAX else "✅ 범위 내"),
         },
         {
             "규칙": "동일가중 ≤ 주식의 20%",
