@@ -10,11 +10,15 @@ from urllib.request import urlopen
 import pandas as pd
 import streamlit as st
 
+import housing_compare
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "web_data"
 SUMMARY_PATH = DATA_DIR / "portfolio_summary.json"
 HOLDINGS_PATH = DATA_DIR / "portfolio_holdings.csv"
 HISTORY_PATH = DATA_DIR / "portfolio_history.csv"
+HOUSING_PATH = DATA_DIR / "housing_index.csv"
+CASH_FLOWS_PATH = DATA_DIR / "cash_flows.csv"
 
 RISK_ASSET_CLASSES = {"개별주식", "지수", "장기채권"}
 SAFE_ASSET_CLASSES = {"현금", "예금", "단기채권"}
@@ -158,6 +162,19 @@ def load_history_url(url: str) -> pd.DataFrame:
     if not url:
         return pd.DataFrame()
     return clean_history(pd.read_csv(url))
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_optional_csv(path_or_url: str) -> pd.DataFrame:
+    """housing_index.csv / cash_flows.csv — 없으면 빈 표."""
+    if not path_or_url:
+        return pd.DataFrame()
+    if not path_or_url.startswith("http") and not Path(path_or_url).exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path_or_url, encoding="utf-8-sig")
+    except Exception:
+        return pd.DataFrame()
 
 
 def value_delta(history_df: pd.DataFrame, value_col: str, days: int | None = None) -> tuple[float | None, float | None]:
@@ -386,6 +403,7 @@ def show_history(history_df: pd.DataFrame) -> None:
 # 투자기준 (2026-10-13 확정) — 기준 변경 시 아래 상수만 수정
 # ---------------------------------------------------------------------------
 POLICY_DATE = "2026-10-13"
+POLICY_REVISED = "2026-11-23"  # 투자 목적·기간 의미 정정, 주택가격 비교 추가
 POLICY_TARGET_RETURN = 0.067  # 서울 아파트 장기 평균 상승률 (KB 시계열 1986~2023)
 
 # 자산구분1 → 정책 버킷
@@ -482,13 +500,14 @@ POLICY_TABLE_CONFIG = {
 
 
 def show_policy_rules() -> None:
-    with st.expander(f"📋 투자기준 원문 ({POLICY_DATE} 확정)", expanded=False):
+    with st.expander(f"📋 투자기준 원문 ({POLICY_DATE} 확정 · {POLICY_REVISED} 정정)", expanded=False):
         st.markdown(
             f"""
-**전제** · 투자기간 10년(2026.10~2036), 10년 후 서울 내집마련 · 출금 없음 · 월 적립 200만원(적금 100 + 현금 100)
-· 비상금 별도 고려 안 함 · 계좌: ISA 2개(명의별) + 해외직접투자 1개
+**전제** · 목적: 서울 주택가격 대비 상대적 구입능력 유지·개선 · 2026.10~2036은 기본 운용·평가 기간(구입·청산 만기 아님)
+· 현재 예정된 정기 인출 없음 · 조기 구입은 상대성과가 아니라 구입 가능 자금·대출 여력·주거 필요가 갖춰졌을 때 전제 변경으로 검토
+· 월 적립 200만원(적금 100 + 현금 100) · 비상금 별도 고려 안 함 · 계좌: ISA 2개(명의별) + 해외직접투자 1개
 
-**목표수익률** · 연 {POLICY_TARGET_RETURN * 100:.1f}% (서울 아파트 장기 평균, KB 시계열 1986~2023) · 매년 서울 아파트 매매가격지수(한국부동산원)와 비교
+**목표수익률** · 연 {POLICY_TARGET_RETURN * 100:.1f}%는 계획용 참고치(서울 아파트 장기 평균, KB 시계열 1986~2023) · 실제 비교는 '주택비교' 탭(한국부동산원 서울 아파트 월간 지수)
 
 **투자기준 총액** · 투자자산 + 적금 포함 / 주택청약저축 제외
 
@@ -497,7 +516,7 @@ def show_policy_rules() -> None:
 
 **주식 내부** · 지수 80%(75~85) / 개별주식 20%(15~25) · 동일가중은 주식의 20% 이내(하한 없음), 신규 지수 매수는 시가총액가중으로 · 미국 외 지역 지수 미편입
 
-**리밸런싱** · 허용범위 이탈 시 조정 · 월 적립금은 부족 자산에 우선 투입 · 주식 70% 이행은 6~12개월 분할
+**리밸런싱** · 허용범위 이탈 시 조정 · 월 적립금은 부족 자산에 우선 투입 · 주식 70% 이행은 2026-11-09 일괄 투입으로 완료
 · 목표비중은 시황으로 바꾸지 않고 연 1회(가을, J.P. Morgan LTCMA 발표 후) 재검토
 
 **통화** · 달러 노출 투자기준의 {POLICY_USD_MIN * 100:.0f}~{POLICY_USD_MAX * 100:.0f}% (환헤지 ETF는 원화로 계산) · 범위 안에서는 환율 수준으로 조정하지 않음 · 상한 초과 시 환헤지형, 하한 미달 시 환노출형으로 조정
@@ -567,7 +586,7 @@ def show_policy_tab(holdings: pd.DataFrame) -> None:
     st.dataframe(alloc_df, use_container_width=True, hide_index=True, column_config=POLICY_TABLE_CONFIG)
     st.caption(
         "목표까지 조정액: 목표비중을 정확히 맞출 때의 금액 / 범위 복귀 최소 조정액: 허용범위 경계까지만 맞출 때의 금액(범위 내면 0). "
-        "주식 70% 이행은 6~12개월 분할 매수."
+        "주식 70% 이행은 2026-11-09 일괄 투입으로 완료."
     )
 
     st.markdown("#### ② 주식 내부 비중 · 주식 합계 대비")
@@ -646,6 +665,111 @@ def show_policy_tab(holdings: pd.DataFrame) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# 주택가격 대비 성과 비교 (2026-11-23) — 계산은 housing_compare.py
+# ---------------------------------------------------------------------------
+HOUSING_EXPECTED_NOTE = (
+    "기대수익률(약 6.0%, J.P. Morgan 2026 LTCMA)이 계획 참고치(6.7%)보다 낮으므로 "
+    "기대대로 운용돼도 ① 상대성과 지수는 서서히 100 아래로 내려갈 수 있습니다(집값 연 6.7% 가정 시 10년 약 93.6)."
+)
+
+
+def show_housing_tab(history: pd.DataFrame, housing: pd.DataFrame, flows: pd.DataFrame) -> None:
+    st.subheader("주택가격 대비 성과 비교")
+    st.caption(
+        "비교 기준: 한국부동산원 서울 아파트 매매가격지수(월간) · 비교월의 마지막 기록일 스냅샷 · "
+        f"시작 {housing_compare.START_MONTH} · 입출금은 {housing_compare.FLOW_START_DATE} 반영분부터"
+    )
+    st.info("참고 지표입니다. 이 탭의 수치만으로 매매·목표비중 변경·조기 구입을 하지 않습니다 (월별 기록, 연 1회 종합 검토).")
+
+    result = housing_compare.compute(history, housing, flows)
+    latest_idx = None
+    if not housing.empty:
+        hx = housing.sort_values("target_month")
+        latest_idx = hx.iloc[-1]
+
+    if result.status == "start_pending":
+        st.warning(
+            f"시작월({housing_compare.START_MONTH})이 끝나지 않아 시작 스냅샷이 아직 없습니다. "
+            f"{housing_compare.START_MONTH}의 마지막 업로드 기록이 시작점이 됩니다."
+        )
+    elif result.status == "no_index":
+        st.warning("housing_index.csv가 없습니다. 업로드 프로그램의 [4b/9] 단계 로그를 확인하세요.")
+    elif result.status == "start_index_pending":
+        st.warning(
+            f"시작 스냅샷 {result.start_snapshot:%Y-%m-%d} (투자기준 {fmt_krw(result.start_value)}) — "
+            f"{housing_compare.START_MONTH} 지수 공표를 기다리는 중입니다."
+        )
+    elif result.status == "no_history":
+        st.warning("portfolio_history.csv가 없습니다.")
+
+    if result.start_snapshot is not None and result.start_index is not None:
+        st.write(
+            f"시작점: **{result.start_snapshot:%Y-%m-%d}** · 투자기준 {fmt_krw(result.start_value)} · "
+            f"서울 아파트 지수 {result.start_index:.4f}"
+        )
+    for w in result.warnings:
+        st.warning(w)
+    if result.pending_months:
+        st.caption(f"지수 미공표로 비교 대기: {', '.join(result.pending_months)}")
+    if result.missing_snapshot_months:
+        st.caption(f"업로드 기록이 없어 비교 불가: {', '.join(result.missing_snapshot_months)}")
+
+    table_df = result.table
+    if not table_df.empty:
+        last = table_df.iloc[-1]
+        k1, k2, k3 = st.columns(3)
+        k1.metric("① 상대성과 지수 (시작=100)", f"{last['① 상대성과 지수']:.2f}", help="(1+누적 TWR) ÷ (지수 변화율) × 100 · 적립금 효과 제외")
+        k2.metric("② 주택가격 환산 자산", fmt_krw(last["② 주택가격 환산 자산"]), help="투자기준 총액 ÷ 지수 변화율 · 적립금 포함, 시작월 원화 기준")
+        k3.metric("누적 초과성과", f"{last['누적 초과성과(%p)']:+.2f}%p", help="누적 TWR − 지수 누적 상승률")
+        st.caption(f"기준 비교월 {last['비교월']} (스냅샷 {last['스냅샷일']}) · TWR은 월 단위 Modified Dietz 근사치")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**① 상대성과 지수**")
+            st.line_chart(table_df.set_index("비교월")[["① 상대성과 지수"]], height=260)
+        with c2:
+            st.markdown("**② 주택가격 환산 자산**")
+            st.line_chart(table_df.set_index("비교월")[["② 주택가격 환산 자산"]], height=260)
+
+        view = table_df.copy()
+        for col in ["월 수익률(근사)", "누적 TWR", "지수 누적 상승률", "TWR 연환산", "지수 연환산"]:
+            if col in view.columns:
+                view[col] = view[col] * 100
+        pct_cfg = {c: st.column_config.NumberColumn(c, format="%+.2f%%") for c in ["월 수익률(근사)", "누적 TWR", "지수 누적 상승률", "TWR 연환산", "지수 연환산"]}
+        st.dataframe(
+            view.sort_values("비교월", ascending=False),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                **pct_cfg,
+                "투자기준 총액": st.column_config.NumberColumn("투자기준 총액", format="%,.0f원"),
+                "누적 순입금": st.column_config.NumberColumn("누적 순입금", format="%+,.0f원"),
+                "② 주택가격 환산 자산": st.column_config.NumberColumn("② 주택가격 환산 자산", format="%,.0f원"),
+                "서울 아파트 지수": st.column_config.NumberColumn("서울 아파트 지수", format="%.4f"),
+                "누적 초과성과(%p)": st.column_config.NumberColumn("누적 초과성과(%p)", format="%+.2f"),
+                "① 상대성과 지수": st.column_config.NumberColumn("① 상대성과 지수", format="%.2f"),
+            },
+        )
+        st.caption("연환산은 12개월 이상 쌓인 뒤 표시합니다. " + HOUSING_EXPECTED_NOTE)
+    else:
+        st.caption(HOUSING_EXPECTED_NOTE)
+
+    with st.expander("서울 아파트 매매가격지수 원자료 (housing_index.csv)"):
+        if housing.empty:
+            st.write("아직 수집된 지수가 없습니다.")
+        else:
+            if latest_idx is not None:
+                st.write(f"최신 {latest_idx['target_month']} = {float(latest_idx['index_value']):.4f} · 기준시점 {latest_idx.get('base_period', '-')}")
+            st.dataframe(housing.sort_values("target_month", ascending=False), use_container_width=True, hide_index=True)
+    with st.expander("입출금 기록 (cash_flows.csv, 엑셀 '입출금' 시트)"):
+        if flows.empty:
+            st.write(f"기록 없음 — {housing_compare.FLOW_START_DATE} 이후 반영분부터 엑셀 '입출금' 시트에 기록하세요.")
+        else:
+            st.dataframe(flows.sort_values("date", ascending=False), use_container_width=True, hide_index=True)
+            st.caption("counted=Y(적립·추가입금·출금)만 수익률 계산에 반영 · 내부이체·청약·이자는 제외")
+
+
 st.sidebar.title("데이터 소스")
 source = st.sidebar.radio("읽기 방식", ["로컬 web_data", "URL 직접 입력"], index=0)
 
@@ -660,6 +784,9 @@ try:
         summary_json = load_summary_url(summary_url)
         holdings_df = load_holdings_url(holdings_url)
         history_df = load_history_url(history_url)
+        sibling = history_url.rsplit("/", 1)[0] + "/" if history_url else ""
+        housing_df = load_optional_csv(sibling + "housing_index.csv" if sibling else "")
+        cash_flows_df = load_optional_csv(sibling + "cash_flows.csv" if sibling else "")
     else:
         if not SUMMARY_PATH.exists() or not HOLDINGS_PATH.exists():
             st.error("web_data 폴더에 portfolio_summary.json / portfolio_holdings.csv 파일이 없습니다.")
@@ -667,6 +794,8 @@ try:
         summary_json = load_summary_local(str(SUMMARY_PATH))
         holdings_df = load_holdings_local(str(HOLDINGS_PATH))
         history_df = load_history_local(str(HISTORY_PATH))
+        housing_df = load_optional_csv(str(HOUSING_PATH))
+        cash_flows_df = load_optional_csv(str(CASH_FLOWS_PATH))
 except Exception as exc:
     st.error(f"데이터를 읽는 중 오류가 발생했습니다: {exc}")
     st.stop()
@@ -699,10 +828,13 @@ f3.metric("JPY 1엔/KRW", fmt_num(fx.get("jpy_1_krw_sell_rate"), 4))
 
 st.divider()
 
-tab_summary, tab_policy, tab_holdings, tab_history = st.tabs(["요약", "투자기준", "보유내역", "추이"])
+tab_summary, tab_policy, tab_housing, tab_holdings, tab_history = st.tabs(["요약", "투자기준", "주택비교", "보유내역", "추이"])
 
 with tab_policy:
     show_policy_tab(holdings_df)
+
+with tab_housing:
+    show_housing_tab(history_df, housing_df, cash_flows_df)
 
 with tab_summary:
     show_checkpoint_metrics(summary_json)
