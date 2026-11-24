@@ -767,7 +767,7 @@ def show_housing_tab(history: pd.DataFrame, housing: pd.DataFrame, flows: pd.Dat
             st.write(f"기록 없음 — {housing_compare.FLOW_START_DATE} 이후 반영분부터 엑셀 '입출금' 시트에 기록하세요.")
         else:
             st.dataframe(flows.sort_values("date", ascending=False), use_container_width=True, hide_index=True)
-            st.caption("counted=Y(적립·추가입금·출금)만 수익률 계산에 반영 · 내부이체·청약·이자는 제외")
+            st.caption("구분 적금·예금 입출금(counted=Y)을 수익률 계산에 반영 · 이자·계좌 간 이체·청약(12,200,000원 고정 제외)은 기록하지 않음")
 
 
 st.sidebar.title("데이터 소스")
